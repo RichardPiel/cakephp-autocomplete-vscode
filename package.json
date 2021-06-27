@@ -1,10 +1,10 @@
 {
 	"name": "cakephp-autocomplete",
 	"publisher": "RichardPiel",
-	"displayName": "CakePHP 4 Autocomplete",
+	"displayName": "CakePHP 3/4 Autocomplete",
 	"description": "This extension allows you to add auto-completion features to a CakePHP 3/4 project.",
 	"icon": "images/We-bake-with-CakePHP.png",
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"repository": {
 		"type": "git",
 		"url": "https://github.com/RichardPiel/cakephp-autocomplete-vscode"

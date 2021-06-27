@@ -1,71 +1,67 @@
-import { Uri, languages, workspace, TextDocument, ExtensionContext, CompletionItem, Position } from "vscode";
-import { ucFirst, camelCase, inArray, getCakeMajorVersion } from "./tools";
+import { Uri, languages, workspace, TextDocument, ExtensionContext } from "vscode";
+import { ucFirst, camelCase, inArray, getCakeMajorVersion, parseVariablesFromFile } from "./tools";
 const workspacePath = workspace.asRelativePath(
 	workspace.workspaceFolders![0].uri
 );
-const ds = require('path').sep
-const majorVersion = getCakeMajorVersion();
+const directorySeparator = require('path').sep
+const cakephpMajorVersion = getCakeMajorVersion();
 
 export function activate(context: ExtensionContext) {
 
-	if (majorVersion >= 3 && majorVersion <= 4) {
+	
+	console.log('CakePHP major version:', cakephpMajorVersion)
 
-		console.log('Major version', majorVersion)
+	if (cakephpMajorVersion >= 3 && cakephpMajorVersion <= 4) {
 
 		context.subscriptions.push(languages.registerCompletionItemProvider('php', {
 
-			provideCompletionItems(document: TextDocument, position: Position) {
+			provideCompletionItems(document: TextDocument) {
 
-				let variables: any = [];
 				let fileNameExploded: Array<String> = [];
-				
-				if (majorVersion == 3) {
-					fileNameExploded = document.fileName.split(`${ds}Template${ds}`);
-				} else if (majorVersion == 4) {
-					fileNameExploded = document.fileName.split(`${ds}templates${ds}`);
+
+				if (cakephpMajorVersion == 3) {
+					fileNameExploded = document.fileName.split(`${directorySeparator}Template${directorySeparator}`);
+				} else if (cakephpMajorVersion == 4) {
+					fileNameExploded = document.fileName.split(`${directorySeparator}templates${directorySeparator}`);
 				}
 
 				if (fileNameExploded.length > 0) {
 
-					const levels = fileNameExploded[1].split(ds);
+					const levels = fileNameExploded[1].split(directorySeparator);
 					const levelsNumber = levels.length - 1;
+					let prefix: String | undefined, controller: String | undefined, method: String | undefined, filePathToParse: String | undefined;
 
-					let prefix: String | undefined, controller: String | undefined, method: String | undefined, controllerPath: String | undefined;
+					// Seulement pour les cells avec prefix
+					if (levelsNumber === 3) {
 
-					if (levelsNumber === 2) {
+						prefix = ucFirst(levels[1]);
+						controller = ucFirst(levels[2]);
+						method = camelCase(levels[3]).slice(0, -4);
+
+						filePathToParse = workspacePath + directorySeparator + 'src' + directorySeparator + 'View' + directorySeparator + 'Cell' + directorySeparator + prefix + directorySeparator + controller + 'Cell.php';
+
+					// Controller avec prefix ou Cell
+					} else if (levelsNumber === 2) {
+
 						prefix = ucFirst(levels[0]);
 						controller = ucFirst(levels[1]);
 						method = camelCase(levels[2]).slice(0, -4);
-						controllerPath = workspacePath + ds + 'src' + ds + 'Controller' + ds + prefix + ds + controller + 'Controller.php';
+
+						if (prefix === 'Cell') {
+							filePathToParse = workspacePath + directorySeparator + 'src' + directorySeparator + 'View' + directorySeparator + prefix + directorySeparator + controller + 'Cell.php';
+						} else {
+							filePathToParse = workspacePath + directorySeparator + 'src' + directorySeparator + 'Controller' + directorySeparator + prefix + directorySeparator + controller + 'Controller.php';
+						}
+
+					// Controller seul
 					} else if (levelsNumber === 1) {
 						controller = ucFirst(levels[0]);
 						method = camelCase(levels[1]).slice(0, -4);
-						controllerPath = workspacePath + ds + 'src' + ds + 'Controller' + ds + controller + 'Controller.php';
+						filePathToParse = workspacePath + directorySeparator + 'src' + directorySeparator + 'Controller' + directorySeparator + controller + 'Controller.php';
 					}
 
-					if (controllerPath) {
-						const path = Uri.parse("file:///" + controllerPath);
-						async function parseVariables() {
-							await workspace.openTextDocument(path).then((document) => {
-								let lineWithVars = document.getText().match(/\$this->set\((.*?)\)\;/g);
-								let already: Array<String> = [];
-								lineWithVars?.forEach(f => {
-									const foundVars = Array.from(f.matchAll(/\'(.*?)\'/g)).map(match => match[1]);
-									if (foundVars) {
-										foundVars?.forEach(v => {
-											if (!inArray(v, already)) {
-												console.log('PUSH : ', v)
-												already.push(v);
-												variables.push(new CompletionItem('$' + v, 5))
-											}
-										})
-									}
-								})
-
-							});
-							return variables;
-						}
-						return parseVariables();
+					if (filePathToParse) {
+						return parseVariablesFromFile(filePathToParse);
 					}
 				}
 			}
